@@ -5,9 +5,9 @@ import requests
 import json
 from detr_lightning.dataset_custom import CocoDetection
 
-config = DetrConfig.from_json_file("detr-resnet-50/config.json")
+config = DetrConfig.from_json_file("config.json")
 
-feature_extractor = DetrFeatureExtractor.from_json_file("detr-resnet-50/preprocessor_config.json")
+feature_extractor = DetrFeatureExtractor.from_json_file("preprocessor_config.json")
 # feature_extractor.size = 320
 
 train_dataset = CocoDetection(img_folder='/content/dataset_caries/train', feature_extractor=feature_extractor)
