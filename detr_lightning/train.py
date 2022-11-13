@@ -3,7 +3,7 @@ import torch
 from PIL import Image
 import requests
 import json
-from detr_lightning.dataset_custom import CocoDetection
+from detr_lightning.coco import CocoDetection
 
 config = DetrConfig.from_json_file("config.json")
 
@@ -103,13 +103,47 @@ class Detr(pl.LightningModule):
     def train_dataloader(self):
         return train_dataloader
 
-    def val_dataloader(self):
-        return val_dataloader
+    # def val_dataloader(self):
+    #     return val_dataloader
     
 
 model = Detr(lr=1e-4, lr_backbone=1e-4, weight_decay=1e-4)
 
 from pytorch_lightning import Trainer
 
-trainer = Trainer(gpus=1)
+trainer = Trainer(gpus=1, gradient_clip_val=0.5, max_epochs=100)
 trainer.fit(model)
+
+from datasets import get_coco_api_from_dataset
+base_ds = get_coco_api_from_dataset(train_dataset) 
+
+from datasets.coco_eval import CocoEvaluator
+# from tqdm.notebook import tqdm
+
+iou_types = ['bbox']
+coco_evaluator = CocoEvaluator(base_ds, iou_types) # initialize evaluator with ground truths
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model.to(device)
+model.eval()
+
+print("Running evaluation...")
+
+for idx, batch in enumerate(val_dataloader):
+    # get the inputs
+    pixel_values = batch["pixel_values"].to(device)
+    pixel_mask = batch["pixel_mask"].to(device)
+    labels = [{k: v.to(device) for k, v in t.items()} for t in batch["labels"]] # these are in DETR format, resized + normalized
+
+    # forward pass
+    outputs = model.model(pixel_values=pixel_values, pixel_mask=pixel_mask)
+
+    orig_target_sizes = torch.stack([target["orig_size"] for target in labels], dim=0)
+    results = feature_extractor.post_process(outputs, orig_target_sizes) # convert outputs of model to COCO api
+    res = {target['image_id'].item(): output for target, output in zip(labels, results)}
+    coco_evaluator.update(res)
+
+coco_evaluator.synchronize_between_processes()
+coco_evaluator.accumulate()
+coco_evaluator.summarize()
