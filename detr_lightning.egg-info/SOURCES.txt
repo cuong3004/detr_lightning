@@ -1,0 +1,5 @@
+setup.py
+detr_lightning.egg-info/PKG-INFO
+detr_lightning.egg-info/SOURCES.txt
+detr_lightning.egg-info/dependency_links.txt
+detr_lightning.egg-info/top_level.txt
